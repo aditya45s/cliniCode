@@ -1,0 +1,339 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  PATIENT
+  DOCTOR
+}
+enum CaseStatus {
+  DRAFT
+  IN_PROGRESS
+  AI_ASSESSMENT_COMPLETE
+  READY_FOR_CONSULTATION
+  CONSULTATION_IN_PROGRESS
+  CONSULTATION_COMPLETED
+}
+enum RiskLevel {
+  LOW
+  MODERATE
+  POTENTIALLY_URGENT
+  EMERGENCY
+}
+enum DocumentStatus {
+  UPLOADED
+  PROCESSING
+  EXTRACTED
+  REVIEW_REQUIRED
+  REVIEWED
+  VERIFIED
+  REJECTED
+}
+
+model User {
+  id String @id @default(cuid())
+  email String? @unique
+  passwordHash String?
+  role Role
+  createdAt DateTime @default(now())
+  patient Patient?
+  doctor Doctor?
+  auditLogs AuditLog[]
+}
+model Patient {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id])
+  name String
+  abhaId String @unique
+  dateOfBirth DateTime?
+  identities PatientIdentity[]
+  cases Case[]
+  documents Document[]
+  histories MedicalHistory[]
+  consultations Consultation[]
+  createdAt DateTime @default(now())
+}
+model Doctor {
+  id String @id @default(cuid())
+  userId String @unique
+  user User @relation(fields: [userId], references: [id])
+  name String
+  specialty String
+  department String
+  consultations Consultation[]
+  reviews DocumentReview[]
+}
+model Hospital {
+  id String @id @default(cuid())
+  name String
+  departments Department[]
+  cases Case[] @relation("HospitalCases")
+}
+model Department {
+  id String @id @default(cuid())
+  name String
+  hospitalId String?
+  hospital Hospital? @relation(fields: [hospitalId], references: [id])
+  cases Case[]
+  questions CaseQuestion[]
+}
+model PatientIdentity {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  kind String
+  valueHash String
+  verifiedAt DateTime?
+}
+model Case {
+  id String @id
+  externalUhid String?
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  hospitalId String?
+  hospital Hospital? @relation(fields: [hospitalId], references: [id], name: "HospitalCases")
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [id])
+  status CaseStatus @default(DRAFT)
+  complaint String?
+  aiFindings Json?
+  riskLevel RiskLevel?
+  summaries CaseSummary[]
+  responses CaseResponse[]
+  symptoms Symptom[]
+  documents Document[]
+  consultations Consultation[]
+  riskAssessments RiskAssessment[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([patientId, createdAt])
+}
+model CaseQuestion {
+  id String @id @default(cuid())
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [id])
+  prompt String
+  category String
+  priority Int @default(0)
+  required Boolean @default(false)
+  trigger Json?
+  responses CaseResponse[]
+}
+model CaseResponse {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  questionId String?
+  question CaseQuestion? @relation(fields: [questionId], references: [id])
+  answer Json
+  createdAt DateTime @default(now())
+}
+model Symptom {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  name String
+  location String?
+  severity String?
+  onset String?
+  duration String?
+  associated Json?
+}
+model CaseSummary {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  content Json
+  confidence Float?
+  createdAt DateTime @default(now())
+}
+model RiskAssessment {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  level RiskLevel
+  action String
+  acknowledged Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+model MedicalHistory {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  source String
+  category String
+  content Json
+  verified Boolean @default(false)
+  createdAt DateTime @default(now())
+}
+model Document {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  caseId String?
+  case Case? @relation(fields: [caseId], references: [id])
+  type String
+  fileName String
+  storagePath String
+  mimeType String
+  fileSize Int
+  fileHash String
+  processingStatus DocumentStatus @default(UPLOADED)
+  classification String?
+  classificationConfidence Float?
+  rawText String?
+  extractedData Json?
+  extractionConfidence Float?
+  versions DocumentVersion[]
+  reviews DocumentReview[]
+  labReport LabReport?
+  imagingReport ImagingReport?
+  uploadedAt DateTime @default(now())
+  @@index([patientId, uploadedAt])
+}
+model DocumentVersion {
+  id String @id @default(cuid())
+  documentId String
+  document Document @relation(fields: [documentId], references: [id])
+  version Int
+  data Json
+  createdAt DateTime @default(now())
+}
+model DocumentReview {
+  id String @id @default(cuid())
+  documentId String
+  document Document @relation(fields: [documentId], references: [id])
+  reviewerId String
+  reviewer Doctor @relation(fields: [reviewerId], references: [id])
+  action String
+  notes String?
+  createdAt DateTime @default(now())
+}
+model Diagnosis {
+  id String @id @default(cuid())
+  consultationId String
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  name String
+  code String?
+  confirmed Boolean @default(false)
+}
+model Consultation {
+  id String @id @default(cuid())
+  caseId String
+  case Case @relation(fields: [caseId], references: [id])
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  doctorId String
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  clinicalAssessment String?
+  clinicalNotes ClinicalNote[]
+  diagnoses Diagnosis[]
+  prescriptions Prescription[]
+  investigations InvestigationOrder[]
+  treatmentPlan TreatmentPlan?
+  followUp FollowUp?
+  status String @default("DRAFT")
+  completedAt DateTime?
+  createdAt DateTime @default(now())
+}
+model ClinicalNote {
+  id String @id @default(cuid())
+  consultationId String
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  content String
+  version Int @default(1)
+  authorId String
+  createdAt DateTime @default(now())
+}
+model Prescription {
+  id String @id @default(cuid())
+  consultationId String
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  items PrescriptionItem[]
+  instructions String?
+}
+model PrescriptionItem {
+  id String @id @default(cuid())
+  prescriptionId String
+  prescription Prescription @relation(fields: [prescriptionId], references: [id])
+  medicineName String
+  strength String?
+  dose String?
+  frequency String?
+  route String?
+  duration String?
+  instructions String?
+}
+model InvestigationOrder {
+  id String @id @default(cuid())
+  consultationId String
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  name String
+  indication String?
+  instructions String?
+}
+model LabReport {
+  id String @id @default(cuid())
+  documentId String @unique
+  document Document @relation(fields: [documentId], references: [id])
+  results LabResult[]
+  observationDate DateTime?
+}
+model LabResult {
+  id String @id @default(cuid())
+  labReportId String
+  labReport LabReport @relation(fields: [labReportId], references: [id])
+  testName String
+  value String
+  unit String?
+  referenceRange String?
+  flag String?
+}
+model ImagingReport {
+  id String @id @default(cuid())
+  documentId String @unique
+  document Document @relation(fields: [documentId], references: [id])
+  studyName String
+  bodyArea String?
+  findings String?
+  impression String?
+  reportDate DateTime?
+}
+model FollowUp {
+  id String @id @default(cuid())
+  consultationId String @unique
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  dueAt DateTime?
+  instructions String?
+}
+model TreatmentPlan {
+  id String @id @default(cuid())
+  consultationId String @unique
+  consultation Consultation @relation(fields: [consultationId], references: [id])
+  content String
+}
+model AuditLog {
+  id String @id @default(cuid())
+  actorId String?
+  actor User? @relation(fields: [actorId], references: [id])
+  action String
+  entityType String
+  entityId String
+  metadata Json?
+  createdAt DateTime @default(now())
+  @@index([entityType, entityId])
+}
+model Notification {
+  id String @id @default(cuid())
+  userId String
+  title String
+  body String
+  read Boolean @default(false)
+  createdAt DateTime @default(now())
+}
