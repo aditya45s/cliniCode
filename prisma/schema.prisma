@@ -44,6 +44,7 @@ model User {
   patient Patient?
   doctor Doctor?
   auditLogs AuditLog[]
+  refreshTokens RefreshToken[]
 }
 model Patient {
   id String @id @default(cuid())
@@ -57,6 +58,9 @@ model Patient {
   documents Document[]
   histories MedicalHistory[]
   consultations Consultation[]
+  appointments Appointment[]
+  queues Queue[]
+  registrations Registration[]
   createdAt DateTime @default(now())
 }
 model Doctor {
@@ -68,12 +72,16 @@ model Doctor {
   department String
   consultations Consultation[]
   reviews DocumentReview[]
+  appointments Appointment[]
 }
 model Hospital {
   id String @id @default(cuid())
   name String
   departments Department[]
   cases Case[] @relation("HospitalCases")
+  appointments Appointment[]
+  queues Queue[]
+  registrations Registration[]
 }
 model Department {
   id String @id @default(cuid())
@@ -82,6 +90,9 @@ model Department {
   hospital Hospital? @relation(fields: [hospitalId], references: [id])
   cases Case[]
   questions CaseQuestion[]
+  appointments Appointment[]
+  queues Queue[]
+  registrations Registration[]
 }
 model PatientIdentity {
   id String @id @default(cuid())
@@ -110,6 +121,9 @@ model Case {
   documents Document[]
   consultations Consultation[]
   riskAssessments RiskAssessment[]
+  appointments Appointment[]
+  queues Queue[]
+  registrations Registration[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
   @@index([patientId, createdAt])
@@ -242,6 +256,53 @@ model Consultation {
   completedAt DateTime?
   createdAt DateTime @default(now())
 }
+model Appointment {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  caseId String?
+  case Case? @relation(fields: [caseId], references: [id])
+  doctorId String
+  doctor Doctor @relation(fields: [doctorId], references: [id])
+  hospitalId String?
+  hospital Hospital? @relation(fields: [hospitalId], references: [id])
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [id])
+  scheduledAt DateTime
+  status String @default("BOOKED")
+  createdAt DateTime @default(now())
+  @@index([patientId, scheduledAt])
+}
+model Queue {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  caseId String?
+  case Case? @relation(fields: [caseId], references: [id])
+  hospitalId String?
+  hospital Hospital? @relation(fields: [hospitalId], references: [id])
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [id])
+  token String
+  position Int
+  status String @default("WAITING")
+  joinedAt DateTime @default(now())
+  @@index([patientId, joinedAt])
+}
+model Registration {
+  id String @id @default(cuid())
+  patientId String
+  patient Patient @relation(fields: [patientId], references: [id])
+  caseId String?
+  case Case? @relation(fields: [caseId], references: [id])
+  hospitalId String?
+  hospital Hospital? @relation(fields: [hospitalId], references: [id])
+  departmentId String?
+  department Department? @relation(fields: [departmentId], references: [id])
+  registrationNumber String @unique
+  status String @default("CREATED")
+  createdAt DateTime @default(now())
+}
 model ClinicalNote {
   id String @id @default(cuid())
   consultationId String
@@ -328,6 +389,15 @@ model AuditLog {
   metadata Json?
   createdAt DateTime @default(now())
   @@index([entityType, entityId])
+}
+model RefreshToken {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id])
+  tokenHash String @unique
+  expiresAt DateTime
+  revokedAt DateTime?
+  createdAt DateTime @default(now())
 }
 model Notification {
   id String @id @default(cuid())
