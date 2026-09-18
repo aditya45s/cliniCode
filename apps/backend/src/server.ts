@@ -21,8 +21,10 @@ type TokenPayload = { sub: string; role: Role; patientId?: string; doctorId?: st
 type AuthRequest = Request & { auth?: TokenPayload }
 const app = express()
 const port = Number(process.env.API_PORT ?? 4000)
-const jwtSecret = process.env.JWT_SECRET ?? 'carekare-development-secret-change-me'
-const refreshSecret = process.env.JWT_REFRESH_SECRET ?? 'carekare-development-refresh-secret-change-me'
+const isTestProcess = process.argv.some(argument => argument === '--test' || argument.includes('test_runner'))
+const jwtSecret = process.env.JWT_SECRET ?? (isTestProcess ? 'carekare-test-secret' : '')
+const refreshSecret = process.env.JWT_REFRESH_SECRET ?? (isTestProcess ? 'carekare-test-refresh-secret' : '')
+if (!jwtSecret || !refreshSecret) throw new Error('JWT_SECRET and JWT_REFRESH_SECRET must be configured')
 const mockAuth = process.env.MOCK_AUTH !== 'false'
 const uploadDirectory = path.resolve(process.env.STORAGE_LOCAL_PATH ?? 'storage')
 fs.mkdirSync(uploadDirectory, { recursive: true })
@@ -86,6 +88,5 @@ app.post('/registrations', requireAuth, requireRole('PATIENT'), async (request: 
 
 app.use((_request, response) => response.status(404).json({ error: 'Route not found' }))
 app.use((error: unknown, _request: Request, response: Response, _next: NextFunction) => { console.error(error); const message = error instanceof Error ? error.message : ''; if (message.includes('File type') || error instanceof multer.MulterError) return response.status(400).json({ error: 'Upload a PDF, JPG, JPEG, or PNG file up to 10 MB' }); response.status(500).json({ error: 'Unexpected server error' }) })
-const isTestProcess = process.argv.some(argument => argument === '--test' || argument.includes('test_runner'))
 if (process.env.NODE_ENV !== 'test' && !isTestProcess) connectDatabase().then(() => app.listen(port, () => console.log(`CareKare API listening on http://localhost:${port}`))).catch(error => { console.error('MongoDB connection failed', error); process.exitCode = 1 })
 export { app }

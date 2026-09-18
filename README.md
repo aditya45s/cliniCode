@@ -75,6 +75,24 @@ Copy `.env.example` to `.env` and configure:
 
 Never expose secrets through frontend environment variables or commit real credentials.
 
+## Optional AI service
+
+The local backend uses built-in mock AI and Vision behavior by default. To run the optional FastAPI service:
+
+```powershell
+Push-Location apps/ai-service
+py -3.12 -m venv .venv
+.\.venv\Scripts\python -m pip install -r requirements.txt
+.\.venv\Scripts\python -m uvicorn app.main:app --reload --port 8000
+Pop-Location
+```
+
+The AI service exposes `/health`, `/understand`, and `/risk`. It is a provider-independent demo service and must not receive real patient data.
+
+## Security
+
+This repository is a demo and is not approved for production healthcare use. Use only synthetic data. Never commit `.env`, credentials, private keys, uploaded documents, or real patient information. Report suspected vulnerabilities privately to the repository owner rather than opening a public issue with sensitive details.
+
 ## Commands
 
 ```powershell
