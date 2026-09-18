@@ -1,73 +1,90 @@
 # CareKare
 
-CareKare is a full-stack healthcare workflow demo for AI-assisted case organization, deterministic safety routing, document extraction, clinician review, and ABHA-linked longitudinal records.
+CareKare is a full-stack healthcare workflow demo for AI-assisted case organization, doctor-led consultation, document extraction, clinical review, and ABHA-linked longitudinal records.
 
-> **Important:** This repository runs in mock/demo mode. CareKare AI organizes patient-provided information; it does not diagnose or replace a clinician. The demo is not for emergencies and is not a claim of regulatory compliance.
+> Demo only: CareKare organizes patient-provided information and does not diagnose, replace a clinician, or support emergencies.
 
 ## Architecture
 
-- `apps/web`: React + TypeScript + Vite client with patient and doctor workspaces.
-- `apps/api`: Express + TypeScript REST API with signed JWT access tokens, hashed refresh-token records, Zod validation, role/ownership middleware, case/risk/document/consultation/care-action routes.
-- `apps/ai-service`: FastAPI provider-independent mock service for structured symptom understanding and deterministic safety risk assessment.
-- `prisma`: PostgreSQL schema and demo seed data for ABHA-linked patients, cases, documents, consultations, history, reviews, and audit-ready entities.
+- `apps/frontend`: React + TypeScript + Vite CareKare interface.
+- `apps/backend`: Express + TypeScript REST API with JWT access/refresh sessions, Zod validation, role and ownership checks, Mongoose persistence, local original-document storage, mock OCR/Vision extraction, consultation, audit, and record-version workflows.
+- MongoDB collections are defined in `apps/backend/src/models.ts`: users, patients, doctors, hospitals, departments, cases, documents, consultations, appointments, queues, registrations, audit logs, record versions, and refresh tokens.
+- `apps/ai-service`: Optional provider-independent FastAPI mock service for future AI integrations.
 
-## Run locally
+The frontend communicates only with REST APIs. It never connects directly to MongoDB.
 
-Prerequisites: Node.js 20+, npm, and Docker Desktop for PostgreSQL. Python 3.12+ is needed only to run the AI service outside Docker.
+## Local setup
+
+Prerequisites: Node.js 20+, npm, a locally installed MongoDB service listening on `127.0.0.1:27017`, and Python 3.12+ only if you run the optional AI service.
 
 ```powershell
-npm install
+npm.cmd install
 Copy-Item .env.example .env
-docker compose up -d postgres
-npm run db:generate
-npm run db:migrate -- --name init
-npm run db:seed
-npm run dev
-```
-
-`db:migrate` is the normal PostgreSQL path. `npm run db:push` is available for a disposable local database when migration history is not present; it should not be used as the production deployment workflow.
-
-Run the AI service separately when needed:
-
-```powershell
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r apps/ai-service/requirements.txt
-uvicorn apps.ai-service.app.main:app --reload --port 8000
+npm.cmd run db:seed
+npm.cmd run dev
 ```
 
 Open `http://localhost:5173`. The API health endpoint is `http://localhost:4000/health`.
+
+To run the API or web app separately:
+
+```powershell
+npm.cmd run dev:backend
+npm.cmd run dev:frontend
+```
+
+The workspace keeps the frontend and backend under `apps/frontend` and `apps/backend`:
+
+```powershell
+Push-Location apps/backend
+npm.cmd install
+npm.cmd run dev
+Pop-Location
+
+Push-Location apps/frontend
+npm.cmd install
+npm.cmd run dev
+Pop-Location
+```
+
+MongoDB must be installed and started as a normal local service on `127.0.0.1:27017`.
 
 ## Demo access
 
 - Patient: choose **Patient login**, then **Use demo account**.
 - Doctor: choose **Doctor login**, then **Use demo account**.
-- Seed patient: Ananya Sharma, ABHA `91-4821-6630-1198`.
-- Seed doctor: Dr. Rohan Mehta, `doctor@carekare.demo`.
-- Second doctor: Dr. Kavya Nair, `kavya@carekare.demo`.
-- Demo password when non-mock authentication is enabled: `CareKareDemo2026!`.
+- Patient: Ananya Sharma, demo ABHA `91-4821-6630-1198`.
+- Doctor: `doctor@carekare.demo`.
+- Demo password when `MOCK_AUTH=false`: `CareKareDemo2026!`.
 
-## Safety behavior
+All identity values and medical records are fake demo data.
 
-The mock AI extracts signals, but risk is decided by deterministic rules in both the API and AI service. Chest pain, difficulty breathing, fainting, unconsciousness, and stroke signals produce `EMERGENCY` and stop ordinary routing. Severe pain, persistent vomiting, high fever, or blood signals produce `POTENTIALLY_URGENT`. Non-critical patients can continue with warnings and may change department.
+## Functional workflow
 
-## Documents
+The existing UI is connected to persisted API state for patient login, cases, AI-assisted responses and risk assessment, department routing, appointments, queues, registrations, health history, document upload, original-file retrieval, mock extraction, doctor consultation, review/verification, audit logging, and record versions. Original uploaded files remain in configured storage while extracted data is stored separately with provenance metadata.
 
-The document UI demonstrates the pipeline: original upload -> mock classification/OCR -> structured extraction -> pending doctor review -> verification. The Prisma model preserves file metadata, raw text, structured JSON, confidence, review action, versions, and source evidence. Local storage is represented by a storage path; an S3 adapter and real OCR/Vision provider are production configuration work.
+AI/OCR providers are intentionally abstracted by configuration. `MOCK_AI=true` and `MOCK_VISION=true` keep the local demo runnable without external credentials. AI output is assistive; doctors retain clinical decision-making authority.
 
-## Care actions
+## Environment
 
-Appointments reserve a future scheduled slot. Queues create a current waiting token and position. Registrations create a hospital visit registration without booking a time. These are separate PostgreSQL records and demo workflows; no real hospital scheduling or registration system is connected.
+Copy `.env.example` to `.env` and configure:
 
-## Verification
+- Required for the local demo: `MONGODB_URI`, `JWT_SECRET`, `JWT_REFRESH_SECRET`, `API_PORT`, `WEB_ORIGIN`, and `VITE_API_URL` when overriding the frontend default.
+- Optional integrations: `AI_SERVICE_URL`, `AI_API_KEY`, `VISION_API_KEY`, object-storage settings, and approved Aadhaar/ABHA or hospital integration credentials.
+- `STORAGE_PROVIDER=local` stores originals under `STORAGE_LOCAL_PATH`; use an object-storage adapter for deployment.
+
+Never expose secrets through frontend environment variables or commit real credentials.
+
+## Commands
 
 ```powershell
-npm run build:web
-npm run build:api
-npm test
-npm run db:migrate -- --create-only --name verify
+npm.cmd run db:seed       # reset and seed MongoDB demo records
+npm.cmd run build         # build frontend and backend
+npm.cmd test              # API safety tests
 ```
 
-## Configuration required for production
+MongoDB may also be provided by a managed deployment; set `MONGODB_URI` accordingly. Local development uses `mongodb://127.0.0.1:27017/carekare`.
 
-Replace mock identity verification with approved ABHA/Aadhaar integrations, configure `DATABASE_URL`, JWT secrets, cloud storage, OCR/Vision credentials, AI provider credentials, secure CORS, rate limiting, encryption, privacy governance, and a formal clinical/security review. The backend already supports password hashing and refresh-token persistence; seeded demo credentials are for development only. Do not expose them in a deployed environment.
+## Production hardening
+
+Replace mock identity verification with approved integrations; configure secure JWT secrets, rate limiting, encryption, object storage, OCR/Vision and AI providers, restrictive CORS, privacy governance, retention controls, and formal clinical/security review. Demo credentials and mock extraction are not production controls.

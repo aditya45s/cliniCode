@@ -1,14 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { riskForText, structuredFindings } from '../src/server.js'
-import { RiskLevel } from '@prisma/client'
 
 test('emergency safety rules stop routine routing', () => {
-  assert.equal(riskForText('chest pain and difficulty breathing'), RiskLevel.EMERGENCY)
+  assert.equal(riskForText('chest pain and difficulty breathing'), 'EMERGENCY')
 })
 
 test('moderate symptoms remain distinct from emergency', () => {
-  assert.equal(riskForText('stomach pain and nausea'), RiskLevel.MODERATE)
+  assert.equal(riskForText('stomach pain and nausea'), 'MODERATE')
 })
 
 test('mock AI returns structured gastrointestinal findings', () => {

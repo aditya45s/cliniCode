@@ -1,5 +1,14 @@
 const API_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:4000'
 
+function normalizeIds(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(normalizeIds)
+  if (!value || typeof value !== 'object') return value
+  const record = value as Record<string, unknown>
+  const normalized = Object.fromEntries(Object.entries(record).filter(([key]) => key !== '_id').map(([key, item]) => [key, normalizeIds(item)]))
+  if (record._id !== undefined && normalized.id === undefined) normalized.id = String(record._id)
+  return normalized
+}
+
 export type AuthUser = { id: string; role: 'PATIENT' | 'DOCTOR'; name: string; abhaId?: string; department?: string }
 export type AuthSession = { accessToken: string; refreshToken: string; user: AuthUser; mock: boolean }
 
@@ -21,11 +30,13 @@ async function requestWithToken<T>(path: string, options: RequestInit, allowRefr
     }
   }
   if (!response.ok) { const body = await response.json().catch(() => ({})); throw new Error(body.error ?? `Request failed (${response.status})`) }
-  return response.status === 204 ? undefined as T : response.json() as Promise<T>
+  return response.status === 204 ? undefined as T : response.json().then(normalizeIds) as Promise<T>
 }
 
 export const api = {
   login: (role: 'patient' | 'doctor', identifier: string, password?: string) => request<AuthSession>(`/auth/${role}/login`, { method: 'POST', body: JSON.stringify({ identifier, password }) }),
+  register: (role: 'patient' | 'doctor', payload: Record<string, string>) => request<AuthSession>(`/auth/${role}/register`, { method: 'POST', body: JSON.stringify(payload) }),
+  patientProfile: () => request<Record<string, unknown>>('/patients/me'),
   cases: () => request<Array<Record<string, unknown>>>('/patients/me/cases'),
   history: () => request<Record<string, unknown>>('/patients/me/history'),
   documents: () => request<Array<Record<string, unknown>>>('/patients/me/documents'),

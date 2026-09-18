@@ -2,24 +2,23 @@
   "name": "carekare",
   "private": true,
   "version": "1.0.0",
-  "workspaces": ["apps/web", "apps/api"],
+  "workspaces": ["apps/frontend", "apps/backend"],
   "scripts": {
-    "dev": "concurrently \"npm run dev:web\" \"npm run dev:api\"",
-    "dev:web": "npm --prefix apps/web run dev",
-    "dev:api": "npm --prefix apps/api run dev",
-    "build": "npm run build:web && npm run build:api",
-    "build:web": "npm --prefix apps/web run build",
-    "build:api": "npm --prefix apps/api run build",
-    "db:generate": "prisma generate",
-    "db:migrate": "prisma migrate dev",
-    "db:push": "prisma db push",
+    "dev:frontend": "npm --prefix apps/frontend run dev",
+    "dev:backend": "npm --prefix apps/backend run dev",
+    "dev:web": "npm run dev:frontend",
+    "dev:api": "npm run dev:backend",
+    "dev": "concurrently \"npm run dev:frontend\" \"npm run dev:backend\"",
+    "build": "npm run build:frontend && npm run build:backend",
+    "build:frontend": "npm --prefix apps/frontend run build",
+    "build:backend": "npm --prefix apps/backend run build",
+    "build:web": "npm run build:frontend",
+    "build:api": "npm run build:backend",
     "db:seed": "tsx prisma/seed.ts",
-    "test": "npm --prefix apps/api test"
+    "test": "npm --prefix apps/backend test"
   },
   "devDependencies": {
-    "@prisma/client": "^6.19.3",
     "concurrently": "^9.1.2",
-    "prisma": "^6.7.0",
     "tsx": "^4.19.3"
   }
 }
