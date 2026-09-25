@@ -30,7 +30,7 @@ const uploadDirectory = path.resolve(process.env.STORAGE_LOCAL_PATH ?? 'storage'
 fs.mkdirSync(uploadDirectory, { recursive: true })
 app.use(helmet())
 const origins = new Set((process.env.WEB_ORIGIN ?? 'http://localhost:5173').split(',').map(value => value.trim()))
-app.use(cors({ origin: (origin, callback) => !origin || origins.has(origin) || /^https?:\/\/localhost:\d+$/.test(origin) ? callback(null, true) : callback(new Error('Origin is not allowed')) }))
+app.use(cors({ origin: (origin, callback) => !origin || origins.has('*') || origins.has(origin) || /^https?:\/\/localhost:\d+$/.test(origin) || /^https:\/\/.*\.vercel\.app$/.test(origin) ? callback(null, true) : callback(new Error('Origin is not allowed')) }))
 app.use(express.json({ limit: '2mb' }))
 const upload = multer({ dest: uploadDirectory, limits: { fileSize: 10 * 1024 * 1024 }, fileFilter: (_request, file, callback) => callback(null, ['application/pdf', 'image/jpeg', 'image/png'].includes(file.mimetype)) })
 
