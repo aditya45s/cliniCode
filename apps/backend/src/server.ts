@@ -135,5 +135,26 @@ export async function seedIfEmpty() {
     console.log('Seeded initial demo records successfully.')
   }
 }
-if (process.env.NODE_ENV !== 'test' && !isTestProcess) connectDatabase().then(async () => { await seedIfEmpty().catch(err => console.error('Auto-seed error:', err)); app.listen(port, () => console.log(`CareKare API listening on http://localhost:${port}`)) }).catch(error => { console.error('MongoDB connection failed', error); process.exitCode = 1 })
+
+function startSelfPing() {
+  const targetUrl = process.env.RENDER_EXTERNAL_URL ?? process.env.SELF_PING_URL ?? `http://localhost:${port}`
+  const intervalMs = 10 * 60 * 1000
+  setInterval(() => {
+    fetch(`${targetUrl}/health`)
+      .then(res => res.json())
+      .then(() => console.log(`[Self-Ping] Keep-alive heartbeat sent to ${targetUrl}/health`))
+      .catch(err => console.warn('[Self-Ping] Keep-alive error:', err.message))
+  }, intervalMs)
+  console.log(`[Self-Ping] Keep-alive timer active (every 10 mins) targeting ${targetUrl}`)
+}
+
+if (process.env.NODE_ENV !== 'test' && !isTestProcess) {
+  connectDatabase().then(async () => {
+    await seedIfEmpty().catch(err => console.error('Auto-seed error:', err))
+    app.listen(port, () => {
+      console.log(`CareKare API listening on http://localhost:${port}`)
+      startSelfPing()
+    })
+  }).catch(error => { console.error('MongoDB connection failed', error); process.exitCode = 1 })
+}
 export { app }
